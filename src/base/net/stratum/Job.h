@@ -45,7 +45,7 @@ public:
     // SECOR increase requirements for blob size: https://github.com/xmrig/xmrig/issues/913
     // Haven (XHV) offshore increases requirements by adding pricing_record struct (192 bytes) to block_header.
     // Round it up to 408 (136*3) for a convenient keccak calculation in OpenCL
-    static constexpr const size_t kMaxBlobSize = 408;
+    static constexpr const size_t kMaxBlobSize = 548;
     static constexpr const size_t kMaxSeedSize = 32;
 
     Job() = default;
@@ -66,6 +66,7 @@ public:
     void setSigKey(const char *sig_key);
 
     inline bool isNicehash() const                      { return m_nicehash; }
+    inline bool isEpicpause() const                     { return m_epicpause; }
     inline bool isValid() const                         { return (m_size > 0 && m_diff > 0) || !m_poolWallet.isEmpty(); }
     inline bool setId(const char *id)                   { return (m_id = id); }
     inline const Algorithm &algorithm() const           { return m_algorithm; }
@@ -74,11 +75,11 @@ public:
     inline const String &extraNonce() const             { return m_extraNonce; }
     inline const String &id() const                     { return m_id; }
     inline const String &poolWallet() const             { return m_poolWallet; }
-    inline const uint32_t *nonce() const                { return reinterpret_cast<const uint32_t*>(m_blob + nonceOffset()); }
+    inline const uint64_t *nonce() const                { return reinterpret_cast<const uint64_t*>(m_blob + nonceOffset()); }
     inline const uint8_t *blob() const                  { return m_blob; }
     inline size_t nonceSize() const                     { return (algorithm().family() == Algorithm::KAWPOW) ?  8 :  4; }
     inline size_t size() const                          { return m_size; }
-    inline uint32_t *nonce()                            { return reinterpret_cast<uint32_t*>(m_blob + nonceOffset()); }
+    inline uint64_t *nonce()                            { return reinterpret_cast<uint64_t*>(m_blob + nonceOffset()); }
     inline uint32_t backend() const                     { return m_backend; }
     inline uint64_t diff() const                        { return m_diff; }
     inline uint64_t height() const                      { return m_height; }
@@ -96,6 +97,7 @@ public:
     inline void setHeight(uint64_t height)              { m_height = height; }
     inline void setIndex(uint8_t index)                 { m_index = index; }
     inline void setPoolWallet(const String &poolWallet) { m_poolWallet = poolWallet; }
+    inline void setEpicpause(const bool ispaused)       { m_epicpause = ispaused; }
 
 #   ifdef XMRIG_PROXY_PROJECT
     inline char *rawBlob()                              { return m_rawBlob; }
@@ -149,6 +151,7 @@ private:
 
     Algorithm m_algorithm;
     bool m_nicehash     = false;
+    bool m_epicpause    = false;
     Buffer m_seed;
     size_t m_size       = 0;
     String m_clientId;

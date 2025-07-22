@@ -243,6 +243,7 @@ void xmrig::Job::copy(const Job &other)
     m_seed       = other.m_seed;
     m_extraNonce = other.m_extraNonce;
     m_poolWallet = other.m_poolWallet;
+    m_epicpause  = other.m_epicpause;
 
     memcpy(m_blob, other.m_blob, sizeof(m_blob));
 
@@ -294,6 +295,7 @@ void xmrig::Job::move(Job &&other)
     m_seed       = std::move(other.m_seed);
     m_extraNonce = std::move(other.m_extraNonce);
     m_poolWallet = std::move(other.m_poolWallet);
+    m_epicpause  = other.m_epicpause;
 
     memcpy(m_blob, other.m_blob, sizeof(m_blob));
 

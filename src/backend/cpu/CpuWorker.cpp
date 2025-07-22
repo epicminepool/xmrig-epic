@@ -20,6 +20,7 @@
 #include <thread>
 #include <mutex>
 
+#include <random>
 
 #include "backend/cpu/Cpu.h"
 #include "backend/cpu/CpuWorker.h"
@@ -42,6 +43,7 @@
 
 #ifdef XMRIG_ALGO_RANDOMX
 #   include "crypto/randomx/randomx.h"
+#   include "3rdparty/uint256_t/uint256_t.h"
 #endif
 
 
@@ -54,6 +56,8 @@ namespace xmrig {
 
 static constexpr uint32_t kReserveCount = 32768;
 
+std::mt19937_64 prng;
+std::atomic<long> seed_count(0);
 
 #ifdef XMRIG_ALGO_CN_HEAVY
 static std::mutex cn_heavyZen3MemoryMutex;
@@ -257,6 +261,14 @@ void xmrig::CpuWorker<N>::start()
 #       ifdef XMRIG_ALGO_RANDOMX
         bool first = true;
         alignas(16) uint64_t tempHash[8] = {};
+
+        prng.seed((static_cast<unsigned long>(time(NULL)) << 16) | 
+                  ((static_cast<unsigned long>(clock()) & 0xFF) << 8) | 
+                  ((static_cast<unsigned long>(seed_count++) & 0xFF)));
+        uint64_t randomNumber = prng();
+        uint8_t wowJob[282] = {};
+        memcpy(wowJob, m_job.currentJob().blob(), 282);
+
 #       endif
 
         while (!Nonce::isOutdated(Nonce::CPU, m_job.sequence())) {
@@ -266,6 +278,10 @@ void xmrig::CpuWorker<N>::start()
                 break;
             }
 
+            uint64_t current_job_cycle;
+            uint256_t starttarget = 0xFFFFFFFFFFFFFFFFULL / m_job.currentJob().target();
+            uint256_t target = uint256_max / starttarget;
+            
             uint32_t current_job_nonces[N];
             for (size_t i = 0; i < N; ++i) {
                 current_job_nonces[i] = readUnaligned(m_job.nonce(i));
@@ -291,23 +307,61 @@ void xmrig::CpuWorker<N>::start()
 #           ifdef XMRIG_ALGO_RANDOMX
             uint8_t* miner_signature_ptr = m_job.blob() + m_job.nonceOffset() + m_job.nonceSize();
             if (job.algorithm().family() == Algorithm::RANDOM_X) {
-                if (first) {
-                    first = false;
+                
+                if (job.algorithm() == "rx/epic") {
+
+                    if (job.isEpicpause()) {
+                        Nonce::pause(true);
+                        break;
+                    }
+
+                    for (size_t i = 0; i < N; ++i) {
+
+                        if (first) {
+                            current_job_cycle = 0;
+                            first = false;
+                        }
+
+                        uint8_t nonce_bytes[8] = {};
+
+                        for (int j = 0; j < static_cast<int>(sizeof(nonce_bytes)); j++) {
+                            nonce_bytes[j] = (randomNumber + current_job_cycle) >> 8 * (7 - j);
+                        }
+
+                        for (int j = 0; j < static_cast<int>(sizeof(nonce_bytes) / sizeof(nonce_bytes[0])); j++) {
+                            wowJob[282 - ((sizeof(nonce_bytes) / sizeof(nonce_bytes[0])) - j)] = nonce_bytes[j];
+                        }
+
+                        if (!nextRound()) {
+                            break;
+                        }
+                        
+                        randomx_calculate_hash(m_vm, wowJob, 282, m_hash);
+
+                    }
+
+                } else {
+
+                    if (first) {
+                        first = false;
+                        if (job.hasMinerSignature()) {
+                            job.generateMinerSignature(m_job.blob(), job.size(), miner_signature_ptr);
+                        }
+                        randomx_calculate_hash_first(m_vm, tempHash, m_job.blob(), job.size());
+                    }
+
+                    if (!nextRound()) {
+                        break;
+                    }
+
                     if (job.hasMinerSignature()) {
+                        memcpy(miner_signature_saved, miner_signature_ptr, sizeof(miner_signature_saved));
                         job.generateMinerSignature(m_job.blob(), job.size(), miner_signature_ptr);
                     }
-                    randomx_calculate_hash_first(m_vm, tempHash, m_job.blob(), job.size());
+                    randomx_calculate_hash_next(m_vm, tempHash, m_job.blob(), job.size(), m_hash);
+
                 }
 
-                if (!nextRound()) {
-                    break;
-                }
-
-                if (job.hasMinerSignature()) {
-                    memcpy(miner_signature_saved, miner_signature_ptr, sizeof(miner_signature_saved));
-                    job.generateMinerSignature(m_job.blob(), job.size(), miner_signature_ptr);
-                }
-                randomx_calculate_hash_next(m_vm, tempHash, m_job.blob(), job.size(), m_hash);
             }
             else
 #           endif
@@ -336,20 +390,78 @@ void xmrig::CpuWorker<N>::start()
             }
 
             if (valid) {
-                for (size_t i = 0; i < N; ++i) {
-                    const uint64_t value = *reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24);
 
-#                   ifdef XMRIG_FEATURE_BENCHMARK
-                    if (m_benchSize) {
-                        if (current_job_nonces[i] < m_benchSize) {
-                            BenchState::add(value);
+                if (job.algorithm() == "rx/epic") {
+
+                    for (size_t i = 0; i < N; ++i) {
+
+                        uint256_t foo = (uint256_t)m_hash[0] << 8 * 31 |
+                                        (uint256_t)m_hash[1] << 8 * 30 |
+                                        (uint256_t)m_hash[2] << 8 * 29 |
+                                        (uint256_t)m_hash[3] << 8 * 28 |
+                                        (uint256_t)m_hash[4] << 8 * 27 |
+                                        (uint256_t)m_hash[5] << 8 * 26 |
+                                        (uint256_t)m_hash[6] << 8 * 25 |
+                                        (uint256_t)m_hash[7] << 8 * 24 |
+                                        (uint256_t)m_hash[8] << 8 * 23 |
+                                        (uint256_t)m_hash[9] << 8 * 22 |
+                                        (uint256_t)m_hash[10] << 8 * 21 |
+                                        (uint256_t)m_hash[11] << 8 * 20 |
+                                        (uint256_t)m_hash[12] << 8 * 19 |
+                                        (uint256_t)m_hash[13] << 8 * 18 |
+                                        (uint256_t)m_hash[14] << 8 * 17 |
+                                        (uint256_t)m_hash[15] << 8 * 16 |
+                                        (uint256_t)m_hash[16] << 8 * 15 |
+                                        (uint256_t)m_hash[17] << 8 * 14 |
+                                        (uint256_t)m_hash[18] << 8 * 13 |
+                                        (uint256_t)m_hash[19] << 8 * 12 |
+                                        (uint256_t)m_hash[20] << 8 * 11 |
+                                        (uint256_t)m_hash[21] << 8 * 10 |
+                                        (uint256_t)m_hash[22] << 8 * 9 |
+                                        (uint256_t)m_hash[23] << 8 * 8 |
+                                        (uint256_t)m_hash[24] << 8 * 7 |
+                                        (uint256_t)m_hash[25] << 8 * 6 |
+                                        (uint256_t)m_hash[26] << 8 * 5 |
+                                        (uint256_t)m_hash[27] << 8 * 4 |
+                                        (uint256_t)m_hash[28] << 8 * 3 |
+                                        (uint256_t)m_hash[29] << 8 * 2 |
+                                        (uint256_t)m_hash[30] << 8 * 1 |
+                                        (uint256_t)m_hash[31] << 8 * 0;
+
+                        if (foo <= target) {
+                            uint64_t enonce = (uint64_t)wowJob[282 - 1] << 8 * 0 |
+                                              (uint64_t)wowJob[282 - 2] << 8 * 1 |
+                                              (uint64_t)wowJob[282 - 3] << 8 * 2 |
+                                              (uint64_t)wowJob[282 - 4] << 8 * 3 |
+                                              (uint64_t)wowJob[282 - 5] << 8 * 4 |
+                                              (uint64_t)wowJob[282 - 6] << 8 * 5 |
+                                              (uint64_t)wowJob[282 - 7] << 8 * 6 |
+                                              (uint64_t)wowJob[282 - 8] << 8 * 7;
+                            JobResults::submit(job, enonce, m_hash + (i * 32));
+                        }
+
+                        ++current_job_cycle;
+
+                    }
+
+                } else {
+
+                    for (size_t i = 0; i < N; ++i) {
+                        const uint64_t value = *reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24);
+
+    #                   ifdef XMRIG_FEATURE_BENCHMARK
+                        if (m_benchSize) {
+                            if (current_job_nonces[i] < m_benchSize) {
+                                BenchState::add(value);
+                            }
+                        }
+                        else
+    #                   endif
+                        if (value < job.target()) {
+                            JobResults::submit(job, current_job_nonces[i], m_hash + (i * 32), job.hasMinerSignature() ? miner_signature_saved : nullptr);
                         }
                     }
-                    else
-#                   endif
-                    if (value < job.target()) {
-                        JobResults::submit(job, current_job_nonces[i], m_hash + (i * 32), job.hasMinerSignature() ? miner_signature_saved : nullptr);
-                    }
+
                 }
                 m_count += N;
             }

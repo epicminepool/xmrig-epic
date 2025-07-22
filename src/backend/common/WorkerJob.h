@@ -137,7 +137,7 @@ inline bool xmrig::WorkerJob<1>::nextRound(uint32_t rounds, uint32_t roundSize)
             return false;
         }
         if (nonceSize() == sizeof(uint64_t)) {
-            writeUnaligned(m_jobs[index()].nonce() + 1, readUnaligned(n + 1));
+            writeUnaligned(m_jobs[index()].nonce() + 1, static_cast<uint64_t>(readUnaligned(n + 1)));
         }
     }
     else {

@@ -100,7 +100,7 @@ public:
 };
 
 
-static inline void checkHash(const JobBundle &bundle, std::vector<JobResult> &results, uint32_t nonce, uint8_t hash[32], uint32_t &errors)
+static inline void checkHash(const JobBundle &bundle, std::vector<JobResult> &results, uint64_t nonce, uint8_t hash[32], uint32_t &errors)
 {
     if (*reinterpret_cast<uint64_t*>(hash + 24) < bundle.job.target()) {
         results.emplace_back(bundle.job, nonce, hash);
@@ -333,13 +333,13 @@ void xmrig::JobResults::stop()
 }
 
 
-void xmrig::JobResults::submit(const Job &job, uint32_t nonce, const uint8_t *result)
+void xmrig::JobResults::submit(const Job &job, uint64_t nonce, const uint8_t *result)
 {
     submit(JobResult(job, nonce, result));
 }
 
 
-void xmrig::JobResults::submit(const Job& job, uint32_t nonce, const uint8_t* result, const uint8_t* miner_signature)
+void xmrig::JobResults::submit(const Job& job, uint64_t nonce, const uint8_t* result, const uint8_t* miner_signature)
 {
     submit(JobResult(job, nonce, result, nullptr, nullptr, miner_signature));
 }

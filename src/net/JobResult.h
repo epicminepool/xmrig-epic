@@ -50,6 +50,7 @@ public:
         jobId(job.id()),
         backend(job.backend()),
         nonce(nonce),
+        height(job.height()),
         diff(job.diff())
     {
         memcpy(m_result, result, sizeof(m_result));
@@ -75,6 +76,7 @@ public:
         jobId(job.id()),
         backend(job.backend()),
         nonce(0),
+        height(job.height()),
         diff(0)
     {
     }
@@ -93,6 +95,7 @@ public:
     const String jobId;
     const uint32_t backend;
     const uint64_t nonce;
+    const uint64_t height;
     const uint64_t diff;
 
 private:

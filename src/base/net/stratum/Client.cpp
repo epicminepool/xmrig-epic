@@ -214,8 +214,28 @@ int64_t xmrig::Client::submit(const JobResult &result)
     Value params(kObjectType);
     params.AddMember("id",     StringRef(m_rpcId.data()), allocator);
     params.AddMember("job_id", StringRef(result.jobId.data()), allocator);
-    params.AddMember("nonce",  StringRef(nonce), allocator);
     params.AddMember("result", StringRef(data), allocator);
+
+    if (result.algorithm == "rx/epic") {
+
+        Value pow(kObjectType);
+        {
+
+            Value pow_dec(kArrayType);
+            for (int i = 0; i < 32; i++) pow_dec.PushBack(result.result()[i], allocator);
+            pow.AddMember("RandomX", pow_dec, allocator);
+
+        }
+
+        params.AddMember("nonce",  result.nonce, allocator);
+        params.AddMember("height", result.height, allocator);
+        params.AddMember("pow", pow, allocator);
+
+    } else {
+
+        params.AddMember("nonce",  StringRef(nonce), allocator);
+
+    }
 
 #   ifndef XMRIG_PROXY_PROJECT
     if (result.minerSignature()) {
@@ -406,6 +426,16 @@ bool xmrig::Client::parseJob(const rapidjson::Value &params, int *code)
     }
 
     job.setHeight(Json::getUint64(params, "height"));
+
+    if (strcmp(algo, "progpow/epic") == 0 || strcmp(algo, "cuckoo/epic") == 0) {
+        LOG_WARN("%s " YELLOW("Idle [%s][%s]"), tag(), algo, Json::getString(params, "job_id"));
+        job.setEpicpause(true);
+        job.setAlgorithm("rx/epic");
+    }
+
+    if (strcmp(algo, "rx/epic") == 0) {
+        LOG_WARN("%s " GREEN("Mining [rx/epic][%s][%s]"), tag(), Json::getString(params, "job_id"), Json::getString(params, "extra_nonce") );
+    }
 
     if (!verifyAlgorithm(job.algorithm(), algo)) {
         *code = 6;

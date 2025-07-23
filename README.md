@@ -18,6 +18,8 @@ XMRig is a high performance, open source, cross platform RandomX, KawPow, Crypto
 * **[Binary releases](https://github.com/xmrig/xmrig/releases)**
 * **[Build from source](https://xmrig.com/docs/miner/build)**
 
+Use `git clone --recurse-submodules https://github.com/epicminepool/xmrig-epic.git` to correctly import the uint256_t submodule required for xmrig-epic.
+
 ## Usage
 The preferred way to configure the miner is the [JSON config file](https://xmrig.com/docs/miner/config) as it is more flexible and human friendly. The [command line interface](https://xmrig.com/docs/miner/command-line-options) does not cover all features, such as mining profiles for different algorithms. Important options can be changed during runtime without miner restart by editing the config file or executing [API](https://xmrig.com/docs/miner/api) calls.
 
@@ -27,6 +29,7 @@ The preferred way to configure the miner is the [JSON config file](https://xmrig
 ## Donations
 * Default donation 1% (1 minute in 100 minutes) can be increased via option `donate-level` or disabled in source code.
 * XMR: `48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRoJMk1j8nLwEVsaSWJ4fhdUyZijBGUicoD`
+* EPIC: `https://donate.epicmine.io/`
 
 ## Developers
 * **[xmrig](https://github.com/xmrig)**
